@@ -24,14 +24,14 @@
 ####
 ##
 print("Time Series Model for S&P 500")
-# Add the directory path of data_1/data_master_1.csv file
+# Add the directory path of data.csv file
 wd <- getwd()
-setwd("../../")
+setwd(".")
 parent <- getwd()
 setwd(wd)
 print(parent)
 # Load the data file
-dataMaster <- read.csv(file.path(parent, "data_1/data_master_1.csv"))
+dataMaster <- read.csv(file.path(parent, "data.csv"))
 
 
 attach(dataMaster)
@@ -98,7 +98,7 @@ print(" ")
 ##
 ####
 ######
-#     TESTING that data loads properly
+#         TESTING that data loads properly
 ######
 ####
 ##
@@ -125,7 +125,7 @@ print(" ")
 ##
 ####
 ######
-#     CREATING TIME-SERIES OBJECTS WITH FINANCIAL DATA 
+#       CREATING TIME-SERIES OBJECTS WITH FINANCIAL DATA 
 ######
 ####
 ##
@@ -149,7 +149,7 @@ print(" ")
 ##
 ####
 ######
-#     TIME SERIES STUFF
+#       TIME SERIES STUFF
 ######
 ####
 ##
@@ -252,7 +252,7 @@ ggplot(together_df, aes(Date)) +
 ##
 ####
 ######
-#     ARIMA MODEL PREDICTIONS FOR 2014-15
+#       ARIMA MODEL PREDICTIONS FOR 2014-15
 ######
 ####
 ##
@@ -332,7 +332,7 @@ ggplot(together_df2, aes(Date)) +
 ##
 ####
 ######
-#     BOX COX TRANSFORMATION
+#       BOX COX TRANSFORMATION
 ######
 ####
 ##
