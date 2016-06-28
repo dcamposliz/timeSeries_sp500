@@ -1,0 +1,427 @@
+#######
+#######
+#######
+#######
+#######
+#######
+#######
+####### Time Series Model for S&P 500
+#######
+#######
+#######
+#######
+#######
+#######
+#######
+
+
+
+##
+####
+######
+#     LOADING DATA, PACKAGES
+######
+####
+##
+print("Time Series Model for S&P 500")
+# Add the directory path of data_1/data_master_1.csv file
+wd <- getwd()
+parent <- getwd()
+setwd(wd)
+print(parent)
+# Load the data file
+#dataMaster <- read.csv(file.path(parent, "data_1/data_master_1.csv"))
+dataMaster <- read.csv("data_master_1.csv")
+
+attach(dataMaster)
+
+
+
+
+# install.packages() the following packages, run this on the terminal
+
+# ggplot2
+# forecast
+# astsa
+# car
+
+
+# install.packages("ggplot2")
+# install.packages("forecast")
+# install.packages("astsa")
+# install.packages("car")
+# install.packages("tsSeries")
+
+# load the packages
+require(ggplot2)
+require(forecast)
+require(astsa)
+library(caret)
+require(plotly)
+
+# outputting work
+
+pdf("timeSeries_sp_500_2.pdf")
+
+
+###########################################################
+print(" ")
+print(" ")
+print(" ")
+###########################################################
+
+##
+####
+######
+#     TESTING that data loads properly
+######
+####
+##
+
+head(dataMaster)
+str(dataMaster)
+
+
+
+###########################################################
+print(" ")
+print(" ")
+print(" ")
+###########################################################
+
+##
+####
+######
+#     CREATING TIME-SERIES OBJECTS WITH FINANCIAL DATA 
+######
+####
+##
+
+
+sp_500 <- ts(dataMaster$sp_500, start=c(1995, 1), freq=12)
+
+
+###########################################################
+print(" ")
+print(" ")
+print(" ")
+###########################################################
+
+
+
+##
+####
+######
+#     TIME SERIES STUFF
+######
+####
+##
+
+sp_500
+# First we plot the time series plot to get an understanding of the necessary modeling
+plot.ts(sp_500, main = "Time Series Plot for S&P 500")
+acf2(sp_500)
+# Next we created some plots to get a "feel" for our data 
+# This next plot takes a closer look at the seasonal components of our time series
+seasonplot(sp_500,ylab="S&P Closing Values", xlab="Year",
+           main="Seasonal plot: S&P Monthly Closing Values",
+           year.labels=TRUE, year.labels.left=TRUE, col=1:20, pch=19)
+
+# the plot following plot decomposes the time series into its seasonal, trend and irregular components!
+plot(stl(sp_500, s.window = "periodic"), main = "Decomposition for S&P 500")
+
+# Notice that this plot is not stationary so an appropriate transformation must be made
+# The variability can not be seen at first glance but one the transformation is made, we can see if the model
+# is heteroskedastic
+diff1 <- diff(sp_500)
+
+# Since we took a difference we have to take it into consideration
+plot(diff1, main = "Time series plot of first diff")
+# Once we plot the newly transformed data we see that it is now weakly stationary
+# Upon inspection of the ACF and PACF plot we can deduce the model we will be fitting will
+# be an MA model
+acf2(diff1)
+
+# We used both the auto.arima and our own inspection of the acf and pacf plot to deduce that the best model was Arima(0,1,1)
+auto.arima(diff1)
+
+# Fortunate for us the auto.arima function for the original data gives us the same function so we decided to leave it as such for 
+# simplicity's sake!
+auto.arima(sp_500)
+fit <- Arima(sp_500, order = c(0,1,1), include.drift = TRUE)
+fit
+for_sp500_ts <- forecast(fit)
+autoplot(for_sp500_ts) 
+
+# Thus once fitted we check the residual diagnostics to make sure our residuals are white noise!
+tsdisplay(residuals(fit))
+# thus we conclude that
+hist(residuals(fit), prob = TRUE)
+lines(density(residuals(fit)))
+# CSV file for residuals 
+resARIMA <- for_sp500_ts$residuals
+write.csv(resARIMA, file = "Residuals.csv")
+# Here we plot the histogram along with the line that best fit!
+hist(resARIMA, prob = TRUE, main = "Histogram of ARIMA model residuals")
+lines(density(resARIMA))
+# declaring act_sp500_2015 vector with actual sp500 values for year 2015, for comparison purposes
+dataMaster_TS <- dataMaster[-c(1:240),]
+dataMaster_2014df <- dataMaster[-c(241:252),]
+dataMaster_TR <- ts(dataMaster_2014df, start = c(1995, 1), freq = 12) 
+sp500_TR <- dataMaster_TR[, 'sp_500']
+sp500_TR
+# turning this vector into ts object
+act_sp500_2015_ts <- ts(dataMaster_TS$sp_500, start=c(2015, 1), freq=12)
+act_sp500_2015_ts
+
+#  attributes(for_nasdaq_mod) 
+for_sp500_all <- forecast(auto.arima(sp500_TR), 12)
+for_sp500_all
+# Here we do some residual diagnostics to make sure we have white noise!
+resARIMA_all <- for_sp500_all$residuals
+plot(resARIMA_all, main = "Residual Plots for Forecast")
+acf(resARIMA_all)
+hist(resARIMA_all, prob = TRUE, main = "Histogram of ARIMA Training Set")
+lines(density(resARIMA_all))
+# From these two plots we see that the residuals look like white noise so we're good to go on forecasting
+
+# Here we extract the forecast information to create better visual demonstration of the forecast vs actual values!
+for_sp500_df <- data.frame(for_sp500_all)
+for_sp500_vals <- for_sp500_df$Point.Forecast
+for_sp500_2015_ts <- ts(for_sp500_vals, start = c(2015, 1), freq = 12) 
+for_sp500_2015_ts
+###Forecast data for 2015 using ARIMA model
+#only getting the information for the year 2015
+
+
+#Including lower 95 % CI Lines
+lo <- data.frame(for_sp500_all$lower)
+lo_df <- lo$X95.
+for_sp500_lo95CI_ts <- ts(lo_df, start=c(2015, 1), freq = 12)
+for_sp500_lo95CI_ts
+plot(for_sp500_lo95CI_ts, main = "Plot of lower 95% CI")
+#including upper 95 % CI Lines
+up <- data.frame(for_sp500_all$upper)
+up_df <- up$X95. 
+for_sp500_up95CI_ts <- ts(up_df, start = c(2015, 1), freq = 12)
+for_sp500_up95CI_ts
+plot(for_sp500_up95CI_ts, main = "Plot of upper 95% CI")
+#real time data for 2015
+together_df <- data.frame(for_sp500_2015_ts, act_sp500_2015_ts, for_sp500_lo95CI_ts, for_sp500_up95CI_ts, date = seq.Date(as.Date("2015-01-01"), by="1 month", length.out=12))
+colnames(together_df) <- c("forecastedValues2015", "actualValues2015", "lower95CI", "upper95CI", "Date")
+head(together_df)
+
+# CSV file outputting all four values: Forecasted, actual, lower 95 and upper 95. (Includes the dates as well)
+write.csv(together_df, file = "myData.csv")
+
+
+par(mar = rep(2, 4))
+ggplot(together_df, aes(Date)) + 
+  geom_ribbon(aes(x=Date, ymax= up_df, ymin= lo_df), fill="gray", alpha=.5) +
+  geom_line(aes(y = forecastedValues2015, colour = "Forecasted Values for 2015")) + 
+  geom_line(aes(y = actualValues2015, colour = "Actual Values for 2015")) +
+  geom_line(aes(y = lower95CI, colour = "Lower 95% Bound"), linetype = 'dotted') +
+  geom_line(aes(y = upper95CI, colour = "Upper 95% Bound"), linetype = 'dotted') +
+  ggtitle("Plot of Forecasted vs Actual Values") +
+  scale_color_manual(name="Groups",values=c("green", "blue", "red", "red"))
+
+
+
+##
+####
+######
+#     ARIMA MODEL PREDICTIONS FOR 2014-15
+######
+####
+##
+
+
+dataMaster_TS1 <- dataMaster[-c(1:228),]
+dataMaster_TS1
+dataMaster_2014df <- dataMaster[-c(229:252),]
+dataMaster_TR1 <- ts(dataMaster_2014df, start = c(1995, 1), freq = 12) 
+sp500_TR1 <- dataMaster_TR1[, 'sp_500']
+sp500_TR1
+# turning this vector into ts object
+act_sp500_2014_ts <- ts(dataMaster_TS1$sp_500, start=c(2014, 1), freq=12)
+act_sp500_2014_ts
+
+#  attributes(for_nasdaq_mod) 
+for_sp500_all_2014 <- forecast(auto.arima(sp500_TR1), 24)
+for_sp500_all_2014
+
+# CSV file for residual values
+res <- for_sp500_all_2014$residuals
+write.csv(res, file = "resids2014.csv")
+# Here we do some residual diagnostics to make sure we have white noise!
+plot(res, main = "Residual Plots for Forecast")
+acf(res, main = "ACF plot for Residuals")
+hist(res, prob = TRUE)
+lines(density(res))
+# Here we extract the forecast information to create better visual demonstration of the forecast vs actual values!
+for_sp500_2014_df <- data.frame(for_sp500_all_2014)
+for_sp500_2014_vals <- for_sp500_2014_df$Point.Forecast
+for_sp500_2014_ts <- ts(for_sp500_2014_vals, start = c(2014, 1), freq = 12) 
+for_sp500_2014_ts
+
+###Forecast data for 2015 using ARIMA model
+#only getting the information for the year 2015
+
+
+
+#Including lower 95 % CI Lines
+lo <- data.frame(for_sp500_all_2014$lower)
+lo_df <- lo$X95.
+for_sp500_lo95CI_14ts <- ts(lo_df, start=c(2014, 1), freq = 12)
+for_sp500_lo95CI_14ts
+plot(for_sp500_lo95CI_14ts, main = "Lower 95% CI for 2014-2015")
+#including upper 95 % CI Lines
+up <- data.frame(for_sp500_all_2014$upper)
+up_df <- up$X95. 
+for_sp500_up95CI_14ts <- ts(up_df, start = c(2014, 1), freq = 12)
+for_sp500_up95CI_14ts
+plot(for_sp500_up95CI_14ts, main = "Upper 95% CI for 2014-2015")
+#real time data for 2014-15
+plot.ts(act_sp500_2014_ts, main = "Actual Values for 2014-2015")
+together_df2 <- data.frame(for_sp500_2014_ts, act_sp500_2014_ts, for_sp500_lo95CI_14ts, for_sp500_up95CI_14ts, date = seq.Date(as.Date("2014-01-01"), by="1 month", length.out=24))
+colnames(together_df2) <- c("forecastedValues", "actualValues", "lowerCI", "upperCI", "Date")
+head(together_df2)
+
+# CSV file doing the same as mentioned for the model done before this one
+write.csv(together_df2, file = "sp500_2014.csv")
+
+
+par(mar = rep(2, 4))
+ggplot(together_df2, aes(Date)) + 
+  geom_ribbon(aes(x=Date, ymax= upperCI, ymin= lowerCI), fill="gray", alpha=.5) +
+  geom_line(aes(y = forecastedValues, colour = "Forecasted Values for 2015")) + 
+  geom_line(aes(y = actualValues, colour = "Actual Values for 2015")) +
+  geom_line(aes(y = lowerCI, colour = "Lower 95% Bound"), linetype = 'dotted') +
+  geom_line(aes(y = upperCI, colour = "Upper 95% Bound"), linetype = 'dotted') +
+  ggtitle("Forecast vs Actual Values for 2014-2015") +
+  scale_color_manual(name="Groups", values=c("green", "blue", "red", "red"))
+
+# Conclusion for this model: The forecast follows the actual data pretty well. It's able to capture the trend although of course it can't capture the volitaty very well we found this
+# model to be satisfactory, although we will test others and measure their goodness of fit
+
+
+
+##
+####
+######
+#     BOX COX TRANSFORMATION
+######
+####
+##
+
+
+
+lambda <- BoxCox.lambda(sp500_TR)
+fit_sp500_BC <- ar(BoxCox(sp500_TR,lambda))
+fit_sp500_BC
+attributes(fit_sp500_BC)
+# Here we do some residual plots to make sure our residuals are white noise and uncorrelated
+plot(fit_sp500_BC$resid, main = "Residual plot for Box Cox Transformation")
+acf(fit_sp500_BC$resid,  na.action=na.pass, main = "ACF plot for residuals")
+
+
+
+autoplot(forecast(fit_sp500_BC,h=12,lambda=lambda))
+for_sp500_BC <- forecast(fit_sp500_BC,h=12,lambda=lambda)
+attributes(for_sp500_BC)
+
+# CSV File for residuals of BC model
+resBC <- for_sp500_BC$residuals
+hist(resBC, prob = TRUE, main = "Histogram of Box Cox Model residuals", ylim = c(0, .1))
+lines(density(na.omit(resBC)))
+write.csv(resBC, file = "resBC.csv")
+#Creating the predicted values for the Box Cox model for 2015
+for_sp500_BCdf <- data.frame(for_sp500_BC)
+for_sp500_BCvals <- for_sp500_BCdf$Point.Forecast
+for_sp500_BC2015_ts <- ts(for_sp500_BCvals, start = c(2015, 1), freq = 12)
+#Creating Upper and Lower 95% CI lines for Box Cox model
+lo_BC <- data.frame(for_sp500_BC$lower)
+lo_BCdf <- lo_BC$X95.
+for_sp500_loBC95CI_ts <- ts(lo_BCdf, start = c(2015, 1), freq = 12)
+plot(for_sp500_loBC95CI_ts, main = "Lower 95% CI Box Cox Method")
+
+up_BC <- data.frame(for_sp500_BC$upper)
+up_BCdf <- up_BC$X95.
+for_sp500_upBC95CI_ts <- ts(up_BCdf, start = c(2015, 1), freq = 12)
+plot(for_sp500_upBC95CI_ts, main = "Upper 95% CI Box Cox Method")
+#Representing Forecasted vs Actual 2015 data with Box Cox transformation
+together_BCdf <- data.frame(for_sp500_BC2015_ts, act_sp500_2015_ts, for_sp500_loBC95CI_ts, for_sp500_upBC95CI_ts, date = seq.Date(as.Date("2015-01-01"), by="1 month", length.out=12))
+together_BCdf
+
+write.csv(together_BCdf, file = "sp500_BC.csv")
+
+ggplot(together_BCdf, aes(date)) + 
+  geom_ribbon(aes(x=date, ymax= for_sp500_upBC95CI_ts, ymin= for_sp500_loBC95CI_ts), fill="gray", alpha=.5) +
+  geom_line(aes(y = for_sp500_BC2015_ts, colour = "Forecasted Values for 2015")) + 
+  geom_line(aes(y = act_sp500_2015_ts, colour = "Actual Values for 2015")) +
+  geom_line(aes(y = for_sp500_loBC95CI_ts, colour = "Lower 95% Bound"), linetype = 'dotted') +
+  geom_line(aes(y = for_sp500_upBC95CI_ts, colour = "Upper 95% Bound"), linetype = 'dotted') +
+  ggtitle("Forecast vs Actual Values Box Cox Transformation")
+  scale_color_manual(name="Groups" ,values=c("green", "blue", "red", "red"))
+
+# Conclusions: Box Cox transformations are usually done with data that is heteroskedastic so the forecast didn't perform as well as the ARIMA model, but we wanted to include it just in case
+# anyone wants to use our methodology with data that has a non-constant variance!
+together_df$Date
+# In order for my plots to work with the new forecast updates which you can plot forecast with ggplot. So I figured out that I would use the quantile function to output
+# the appropriate intervals needed with the data frame we already had to so it could output correctly on ggplot.
+quantile(c(2015., 2015.9166), probs = seq(0, 1, 1/11))
+
+t_df <- data.frame(together_df, Year = c(2015.000,  2015.083,  2015.167,  2015.250,  2015.333,  2015.417,  2015.500,  2015.583,  2015.667,  2015.750,  2015.833,  2015.917 ))
+t_df
+
+# Here we're plotting other forecasts that aren't as good predictors for this data so we are keeping them as simple plots the same steps would be followed as done before if you wanted a 
+# detailed plot of these methods
+dev.off()
+autoplot(forecast(meanf(sp500_TR, h = 12)), main = "Forecast Using Mean Methods") + 
+  geom_line(data = t_df, aes(x = as.numeric(Year), y = actualValues2015, col = "Actual S&P 500 Closing Values")) + 
+  coord_cartesian(xlim = c(2015, 2016))
+autoplot(forecast(naive(sp500_TR, h = 12)), main = "Forecast using Naive Method") +
+  geom_line(data = t_df, aes(x = as.numeric(Year), y = actualValues2015, col = "Actual S&P 500 Closing Values")) +
+  coord_cartesian(xlim = c(2015, 2016), ylim = c(1700, 2400))
+autoplot(forecast(snaive(sp500_TR, h = 12)), main = "Forecast using Seasonal Naive Method") +
+  geom_line(data = t_df, aes(x = as.numeric(Year), y = actualValues2015, col = "Actual S&P 500 Closing Values")) +  
+  coord_cartesian(xlim = c(2015, 2016), ylim = c(1400, 2500))
+autoplot(forecast(ets(sp500_TR), h = 12), main = "Forecast using ETS Method")+
+  geom_line(data = t_df, aes(x = as.numeric(Year), y = actualValues2015, col = "Actual S&P 500 Closing Values")) + 
+  coord_cartesian(xlim = c(2015, 2016), ylim = c(1600, 2650))
+#Forecast for the year 2016!!
+autoplot(forecast(auto.arima(sp_500), h = 24)) + 
+  coord_cartesian(xlim = c(2014, 2018), ylim = c(1700, 2800))
+###Measuring accuracy between models 
+accuracy(for_sp500_all)
+accuracy(for_sp500_BC)
+accuracy(meanf(sp500_TR, h = 12))
+accuracy(naive(sp500_TR, h = 12))
+accuracy(snaive(sp500_TR, h = 12))
+accuracy(forecast(ets(sp500_TR), h = 12))
+
+# Thus we concluded that the ARIMA model produced the best forecast!
+
+# After concluding our basic time series analysis, upon further research I were concerned with the issue of volitaty since our data seemed to 
+# to display this. So I learned about the model that is called Autoregressive Conditional Heteroskedasticity (ARCH). Upon reading online documentation 
+# (listed in the resources!) there is risk of volatility clustering which is especially prevalent in financial time series. The steps required to 
+# see if ARCH was necessary are outlined here!!
+
+# ARCH Modeling
+# Here we first square the residuals and plot the time series/ACF/PACF to see if there is correlation within the residuals.
+# If there is we can continue adding on to our ARIMA model with a gARCH aspect that helps in the volatity of our data.
+squared.resARIMA <- resARIMA^2
+par(mfcol=c(3, 1))
+plot(squared.resARIMA, main = "Squared Residuals")
+acf(squared.resARIMA)
+pacf(squared.resARIMA)
+
+require(tseries)
+gfit <- garch(resARIMA, order = c(1,1), trace = TRUE)
+# The plots indicate that there is no correlation so a gARCH model might not be necessary, but I went ahead and made the model to be sure!
+# Using the tseries package I fitted the basic gARCH(1, 1) model which I didn't conclude was the best, but it is the most commonly used mode. 
+# So I fit the model on the residuals!! Not the original time series, not the differenced time series, but the residuals. Then I let TRACE 
+# be TRUE so that I would be able to see if there was any errors in the estimation of the model, which there was!!!
+# Sources online state that if there reads a line ***** FALSE CONVERGENCE ***** then we should be cautious of the statistical significance of the model
+# Thus I concluded from this and the ACF/PACF of the squared residuals that a gARCH model was not need, but it was still interesting and useful to know 
+# for future reference!!! 
